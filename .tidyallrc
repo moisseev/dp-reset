@@ -1,0 +1,28 @@
+; Run "tidyall -a" to process all files.
+; Run "tidyall -g" to process all added or modified files in the current git working directory.
+
+[PerlCritic]
+select = **/*.{pl,pm,t}
+select = dp-reset
+
+[PerlTidy]
+select = **/*.{pl,pm,t}
+select = dp-reset
+argv = -l=120
+
+[PodChecker]
+select = **/*.{pl,pm,pod}
+select = dp-reset
+
+;[PodSpell]
+;select = **/*.{pl,pm,pod}
+;select = dp-reset
+;argv = aspell --lang=en list
+
+[PodTidy]
+select = **/*.{pl,pm,pod}
+select = dp-reset
+
+[Test::Vars]
+select = **/*.{pl,pm,t}
+select = dp-reset

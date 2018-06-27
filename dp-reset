@@ -1,0 +1,171 @@
+#!/usr/bin/env perl
+
+use 5.014;
+use warnings;
+
+use Getopt::Long;
+use Expect;
+use Pod::Usage;
+
+my $timeout = 5;
+our $opt_p = '';    # Default password
+
+our ( $opt_help, $opt_man );
+
+GetOptions( "p=s", "help|?", "man" ) || pod2usage(2);
+pod2usage( -exitstatus => 0, -verbose => 2 ) if $opt_man;
+pod2usage(1) if $opt_help;
+pod2usage(2) unless @ARGV;
+
+for my $host (@ARGV) {
+    my $command = "telnet $host";
+    my $next    = 0;
+    my @log;
+
+    local $SIG{__WARN__} = sub {
+        unshift @log, "-" x 3, " session log ", "-" x 34, "\n";
+        push @log, "-" x 50, "\n";
+        say join '', @log;
+        $next = 1;
+        warn shift;
+        say '';
+    };
+
+    my $exp = Expect->spawn($command)
+      or warn "ERROR: Cannot spawn $command: $!\n";
+
+    next
+      if $next;
+
+    $exp->log_stdout(0);
+    $exp->log_file( sub { push @log, @_; } );
+
+    $exp->expect(
+        $timeout,
+
+        [ 'Please Enter Password: '                => \&enter, $opt_p ],    # DP-300U F/W: 1.20
+        [ qr/MAC Address    : (:? [A-F0-9]{2}){6}/ => \&enter, $opt_p ],    # DP-300U F/W: 2.10
+
+        [ eof     => sub { warn "ERROR: premature EOF.\n"; } ],
+        [ timeout => sub { warn "ERROR: Timeout.\n"; } ]
+    );
+
+    next
+      if $next;
+
+    $exp->expect(
+        $timeout,
+
+        [ qr/[*]+(:?\r\n){2}\[Main Menu\].+Enter Selection: \x00$/s         => \&enter, '6', 1 ],
+        [ qr/6(:?\r\n){2}\[Tools\].+Enter Selection: \x00$/s                => \&enter, '1', 1 ],
+        [ qr/Do you really want to reset the print server\? \(y\/n\) \x00$/ => \&enter, 'y', 0 ],
+
+        [ eof     => sub { warn "ERROR: premature EOF.\n"; } ],
+        [ timeout => sub { warn "ERROR: Timeout.\n"; } ]
+    );
+
+    next
+      if $next;
+
+    $exp->expect(
+        $timeout,
+
+        [ 'Connection closed by foreign host.' => ],    # exit expect
+
+        [ eof     => sub { warn "ERROR: premature EOF\n"; } ],
+        [ timeout => sub { warn "ERROR: Timeout.\n"; } ]
+    );
+}
+
+#say join '', @log, "\n";
+
+exit 0;
+
+sub enter {
+    my ( $exp, $str, $continue ) = @_;
+    $exp->send("$str\r\n");
+    exp_continue
+      if $continue;
+}
+
+__END__
+
+
+=head1 NAME
+
+dp-reset - reset D-link DP-300U print servers via telnet connection
+
+=head1 SYNOPSIS
+
+B<dp-reset> [-p I<password>] I<hostname> [I<hostname> [...]]
+
+B<dp-reset> [--help|--man]
+
+=head1 DESCRIPTION
+
+B<dp-reset> - is a Perl script that sends reset command to multiple D-link
+DP-300U print servers interacting with console interface via telnet session.
+
+=head2 Compatible print servers
+
+The script was tested with D-Link DP-300U (F/W Version 1.20 and 2.10) print
+servers.
+
+=head1 OPTIONS
+
+=over
+
+=item B<-p> I<password>
+
+the password to use when connecting to print servers. An empty string is the
+default.
+
+Specifying a password on the command line should be considered insecure, but
+there are no alternatives implemented yet.
+
+=item B<-help -?>
+
+brief help message
+
+=item B<--man>
+
+full documentation
+
+=back
+
+=head1 REQUIREMENTS
+
+=over 4
+
+=item *
+
+Perl 5.14 or later
+
+=item *
+
+Perl modules: Expect and its dependency IO::Tty
+
+=back
+
+=head1 EXAMPLES
+
+A cron job to reset print servers daily at 6:24:
+
+ 24 6  *  *  *    /root/dp-reset -p "p'ss]0rd" ps-01-sales ps-06-accord ps-10-accnt1
+
+=head1 AVAILABILITY
+
+https://github.com/moisseev/dp-reset
+
+=head1 AUTHOR
+
+S<Alexander Moisseev E<lt>moiseev@mezonplus.ruE<gt>>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (c) 2018, Alexander Moisseev
+
+This software is licensed under the terms of the 2-Clause BSD License.
+
+For license details, see the file 'LICENSE' included with this distribution.
+

@@ -23,8 +23,10 @@ for my $host (@ARGV) {
     my @log;
 
     local $SIG{__WARN__} = sub {
-        unshift @log, "-" x 3, " session log ", "-" x 34, "\n";
-        push @log, "-" x 50, "\n";
+        unshift @log, '-' x 3, " [$host] ", '-' x ( 57 - length $host ), ' session log ', '-' x 3, "\n";
+        push @log, "\n"
+          if substr( $log[$#log], -1 ) ne "\n";
+        push @log, '-' x 80, "\n";
         say join '', @log;
         $next = 1;
         warn shift;

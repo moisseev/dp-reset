@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: buildpack-deps:trusty
+      - image: buildpack-deps:sid
     steps:
       - run:
           name: Exporting env vars
@@ -15,7 +15,7 @@ jobs:
       - checkout
 
       - restore_cache:
-          key: v1-tidyall_dependencies
+          key: v2-tidyall_dependencies
       - run:
           name: Installing cpanm
           command: 'curl -L https://cpanmin.us | perl - App::cpanminus'
@@ -29,7 +29,7 @@ jobs:
               Perl::Tidy \
               Pod::Tidy
       - save_cache:
-          key: v1-tidyall_dependencies
+          key: v2-tidyall_dependencies
           paths:
             - ~/perl5
 

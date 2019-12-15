@@ -17,9 +17,28 @@ pod2usage( -exitstatus => 0, -verbose => 2 ) if $opt_man;
 pod2usage(1) if $opt_help;
 pod2usage(2) unless @ARGV;
 
-for my $host (@ARGV) {
+for my $host_specification (@ARGV) {
+    my ( $next, $skip_unavailable ) = (0) x 2;
+    my ( $host, undef, $host_opts ) = split( /:/, $host_specification, 3 );
+
+    if ( defined $host_opts ) {
+        for ( split( /,/, $host_opts ) ) {
+            if ( $_ eq "skip-unavailable" ) {
+                $skip_unavailable = 1;
+            }
+            else {
+                $next = 1;
+                warn "ERROR: $host: Unknown option \"$_\" in \"$host_specification\"\n";
+            }
+        }
+    }
+
+    if ($next) {
+        say '';
+        next;
+    }
+
     my $command = "telnet $host";
-    my $next    = 0;
     my @log;
 
     local $SIG{__WARN__} = sub {
@@ -48,8 +67,17 @@ for my $host (@ARGV) {
         [ 'Please Enter Password: '                => \&enter, $opt_p ],    # DP-300U F/W: 1.20
         [ qr/MAC Address    : (:? [A-F0-9]{2}){6}/ => \&enter, $opt_p ],    # DP-300U F/W: 2.10
 
-        [ eof     => sub { warn "ERROR: premature EOF.\n"; } ],
-        [ timeout => sub { warn "ERROR: Timeout.\n"; } ]
+        [ eof => sub { warn "ERROR: premature EOF.\n"; } ],
+        [
+            timeout => sub {
+                if ($skip_unavailable) {
+                    $next = 1;
+                }
+                else {
+                    warn "ERROR: Timeout.\n";
+                }
+            }
+        ]
     );
 
     next
@@ -99,7 +127,8 @@ dp-reset - reset D-link DP-300U print servers via telnet connection
 
 =head1 SYNOPSIS
 
-B<dp-reset> [-p I<password>] I<hostname> [I<hostname> [...]]
+B<dp-reset> [-p I<password>] I<hostname>[::option1[,option2[,...]]]
+[I<hostname>[::option1[,option2[,...]]] [...]]
 
 B<dp-reset> [--help|--man]
 
@@ -135,6 +164,24 @@ full documentation
 
 =back
 
+=head1 HOST SPECIFICATION
+
+I<hostname>[::option1[,option2[,...]]]
+
+A hostname optionally followed by a double colon and a comma-separated list of
+host specific options.
+
+=head1 HOST SPECIFIC OPTIONS
+
+=over
+
+=item B<skip-unavailable>
+
+Silently skip unavailable host on connection timeout. Useful for avoiding
+timeout errors when resetting print-servers that are not always on.
+
+=back
+
 =head1 REQUIREMENTS
 
 =over 4
@@ -153,7 +200,7 @@ Perl modules: Expect and its dependency IO::Tty
 
 A cron job to reset print servers daily at 6:24:
 
- 24 6  *  *  *    /root/dp-reset -p "p'ss]0rd" ps-01-sales ps-06-accord ps-10-accnt1
+ 24 6  *  *  *    /root/dp-reset -p "p'ss]0rd" ps-01-sales ps-06-accord::skip-unavailable ps-10-accnt1.example.org
 
 =head1 AVAILABILITY
 

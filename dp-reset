@@ -14,7 +14,7 @@ our ( $opt_help, $opt_man );
 
 GetOptions( "p=s", "help|?", "man" ) || pod2usage(2);
 pod2usage( -exitstatus => 0, -verbose => 2 ) if $opt_man;
-pod2usage(1) if $opt_help;
+pod2usage(1)                                 if $opt_help;
 pod2usage(2) unless @ARGV;
 
 for my $host_specification (@ARGV) {
